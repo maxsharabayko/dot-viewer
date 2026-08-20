@@ -83,30 +83,37 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
       }
     }
 
-    // Strip explicit width/height so CSS (flex-1) controls the element size
-    // and svg-pan-zoom can zoom/pan freely without a fixed intrinsic size.
-    svgEl.removeAttribute('width')
-    svgEl.removeAttribute('height')
-    svgEl.style.width = '100%'
-    svgEl.style.height = '100%'
+    // Strip pt-based dimensions; set percentage via attribute so the browser
+    // flushes layout before svg-pan-zoom reads clientWidth/clientHeight.
+    svgEl.setAttribute('width', '100%')
+    svgEl.setAttribute('height', '100%')
     svgEl.style.display = 'block'
 
-    destroyPanZoom()
-    panZoomRef.current = svgPanZoom(svgEl, {
-      zoomEnabled: true,
-      controlIconsEnabled: false,
-      fit: false,
-      center: false,
-      minZoom: 0.05,
-      maxZoom: 40,
-      mouseWheelZoomEnabled: true,
-      onZoom: (scale) => setZoomPercent(Math.round(scale * 100)),
-    })
-    const pz = panZoomRef.current
-    fitToGraph(pz, svgEl)
-    setZoomPercent(Math.round(pz.getZoom() * 100))
+    // Defer pan-zoom init to the next frame so the browser has laid out the
+    // SVG at its final CSS size before svg-pan-zoom measures it.
+    let rafId: number
+    const initPanZoom = () => {
+      destroyPanZoom()
+      panZoomRef.current = svgPanZoom(svgEl, {
+        zoomEnabled: true,
+        controlIconsEnabled: false,
+        fit: false,
+        center: false,
+        minZoom: 0.05,
+        maxZoom: 40,
+        mouseWheelZoomEnabled: true,
+        onZoom: (scale) => setZoomPercent(Math.round(scale * 100)),
+      })
+      const pz = panZoomRef.current
+      fitToGraph(pz, svgEl)
+      setZoomPercent(Math.round(pz.getZoom() * 100))
+    }
+    rafId = requestAnimationFrame(initPanZoom)
 
-    return () => { destroyPanZoom() }
+    return () => {
+      cancelAnimationFrame(rafId)
+      destroyPanZoom()
+    }
   }, [svgContent])
 
   const handleDownload = useCallback(() => {
