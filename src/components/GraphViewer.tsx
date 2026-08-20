@@ -57,6 +57,12 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const container = containerRef.current
     if (!container || !svgContent) return
 
+    // Extract viewBox and dimensions from the raw SVG string *before*
+    // DOMPurify potentially strips or case-folds these attributes.
+    const rawVbMatch = svgContent.match(/viewBox\s*=\s*["']([^"']+)["']/i)
+    const rawW = svgContent.match(/\bwidth\s*=\s*["']([^"']+)["']/i)?.[1] ?? null
+    const rawH = svgContent.match(/\bheight\s*=\s*["']([^"']+)["']/i)?.[1] ?? null
+
     // Sanitize before injecting
     const clean = DOMPurify.sanitize(svgContent, {
       USE_PROFILES: { svg: true, svgFilters: true },
@@ -66,17 +72,17 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) return
 
-    // Build a valid viewBox if the SVG doesn't have one.
-    // Graphviz emits width/height as e.g. "7027pt" with no viewBox attribute.
-    // svgEl.viewBox.baseVal is all-zeros when the attribute is absent, so we
-    // parse the raw attribute strings to extract the numeric portion.
-    if (!svgEl.getAttribute('viewBox')) {
-      const parseAttrNum = (attr: string | null) =>
-        attr ? parseFloat(attr) : NaN
-      const w = parseAttrNum(svgEl.getAttribute('width')) || svgEl.width.baseVal.value || 1
-      const h = parseAttrNum(svgEl.getAttribute('height')) || svgEl.height.baseVal.value || 1
-      svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`)
+    // Restore viewBox if DOMPurify removed or case-folded it away.
+    if (!svgEl.getAttribute('viewBox') && !svgEl.getAttribute('viewbox')) {
+      if (rawVbMatch) {
+        svgEl.setAttribute('viewBox', rawVbMatch[1])
+      } else if (rawW && rawH) {
+        const w = parseFloat(rawW) || 1
+        const h = parseFloat(rawH) || 1
+        svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`)
+      }
     }
+
     // Strip explicit width/height so CSS (flex-1) controls the element size
     // and svg-pan-zoom can zoom/pan freely without a fixed intrinsic size.
     svgEl.removeAttribute('width')
