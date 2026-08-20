@@ -66,17 +66,14 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) return
 
-    // Keep intrinsic dimensions but make sure viewBox exists and starts at (0,0).
+    // Ensure viewBox exists so svg-pan-zoom can determine dimensions.
     if (!svgEl.getAttribute('viewBox')) {
       const w = svgEl.viewBox.baseVal.width || svgEl.width.baseVal.value || 1
       const h = svgEl.viewBox.baseVal.height || svgEl.height.baseVal.value || 1
       svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`)
-    } else {
-      const vb = svgEl.viewBox.baseVal
-      if (vb.x !== 0 || vb.y !== 0) {
-        svgEl.setAttribute('viewBox', `0 0 ${vb.width} ${vb.height}`)
-      }
     }
+    // Preserve the viewBox origin — graphviz may emit negative x/y values that
+    // place content correctly; stripping them crops the rendered graph.
     svgEl.style.display = 'block'
 
     destroyPanZoom()
