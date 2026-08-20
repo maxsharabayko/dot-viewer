@@ -66,14 +66,23 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) return
 
-    // Ensure viewBox exists so svg-pan-zoom can determine dimensions.
+    // Build a valid viewBox if the SVG doesn't have one.
+    // Graphviz emits width/height as e.g. "7027pt" with no viewBox attribute.
+    // svgEl.viewBox.baseVal is all-zeros when the attribute is absent, so we
+    // parse the raw attribute strings to extract the numeric portion.
     if (!svgEl.getAttribute('viewBox')) {
-      const w = svgEl.viewBox.baseVal.width || svgEl.width.baseVal.value || 1
-      const h = svgEl.viewBox.baseVal.height || svgEl.height.baseVal.value || 1
+      const parseAttrNum = (attr: string | null) =>
+        attr ? parseFloat(attr) : NaN
+      const w = parseAttrNum(svgEl.getAttribute('width')) || svgEl.width.baseVal.value || 1
+      const h = parseAttrNum(svgEl.getAttribute('height')) || svgEl.height.baseVal.value || 1
       svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`)
     }
-    // Preserve the viewBox origin — graphviz may emit negative x/y values that
-    // place content correctly; stripping them crops the rendered graph.
+    // Strip explicit width/height so CSS (flex-1) controls the element size
+    // and svg-pan-zoom can zoom/pan freely without a fixed intrinsic size.
+    svgEl.removeAttribute('width')
+    svgEl.removeAttribute('height')
+    svgEl.style.width = '100%'
+    svgEl.style.height = '100%'
     svgEl.style.display = 'block'
 
     destroyPanZoom()
