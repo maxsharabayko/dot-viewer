@@ -57,12 +57,6 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const container = containerRef.current
     if (!container || !svgContent) return
 
-    // Extract viewBox and dimensions from the raw SVG string *before*
-    // DOMPurify potentially strips or case-folds these attributes.
-    const rawVbMatch = svgContent.match(/viewBox\s*=\s*["']([^"']+)["']/i)
-    const rawW = svgContent.match(/\bwidth\s*=\s*["']([^"']+)["']/i)?.[1] ?? null
-    const rawH = svgContent.match(/\bheight\s*=\s*["']([^"']+)["']/i)?.[1] ?? null
-
     // Sanitize before injecting
     const clean = DOMPurify.sanitize(svgContent, {
       USE_PROFILES: { svg: true, svgFilters: true },
@@ -72,21 +66,14 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) return
 
-    // Restore viewBox if DOMPurify removed or case-folded it away.
-    if (!svgEl.getAttribute('viewBox') && !svgEl.getAttribute('viewbox')) {
-      if (rawVbMatch) {
-        svgEl.setAttribute('viewBox', rawVbMatch[1])
-      } else if (rawW && rawH) {
-        const w = parseFloat(rawW) || 1
-        const h = parseFloat(rawH) || 1
-        svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`)
-      }
-    }
-
-    // Strip pt-based dimensions; set percentage via attribute so the browser
-    // flushes layout before svg-pan-zoom reads clientWidth/clientHeight.
-    svgEl.setAttribute('width', '100%')
-    svgEl.setAttribute('height', '100%')
+    // svg-pan-zoom removes the viewBox attribute during init and manages
+    // positioning via transforms on a <g> viewport wrapper instead.
+    // Without viewBox, an SVG with percentage dimensions defaults to 300×150px.
+    // Fix: size the SVG in pixels matching the container so svg-pan-zoom reads
+    // the correct dimensions when it initialises.
+    const { width: cw, height: ch } = container.getBoundingClientRect()
+    svgEl.setAttribute('width', `${cw}`)
+    svgEl.setAttribute('height', `${ch}`)
     svgEl.style.display = 'block'
 
     // Defer pan-zoom init to the next frame so the browser has laid out the
