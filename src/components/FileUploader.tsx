@@ -2,7 +2,14 @@ import React, { useCallback, useRef, useState } from 'react'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 const ACCEPTED_EXTENSIONS = ['.dot', '.gv']
-const ACCEPTED_MIME = ['text/plain', 'application/octet-stream', '']
+const ACCEPTED_MIME = [
+  'text/plain',
+  'application/octet-stream',
+  'application/msword',
+  'text/vnd.graphviz',
+  'application/msword-template',
+  '',
+]
 
 interface FileUploaderProps {
   onDotLoaded: (dot: string, filename: string) => void
