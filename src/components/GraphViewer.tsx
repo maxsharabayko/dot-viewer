@@ -8,37 +8,21 @@ interface GraphViewerProps {
   filename: string
 }
 
-function fitToGraph(pz: ReturnType<typeof svgPanZoom>, svgEl: SVGSVGElement) {
-  const graph = (svgEl.querySelector('#graph0') ||
-    svgEl.querySelector('g.graph')) as SVGGElement | null
-  if (!graph) {
-    pz.resize()
-    pz.fit()
-    pz.center()
-    return
-  }
+function tightenViewBoxToGraph(svgEl: SVGSVGElement) {
+  const graph = svgEl.querySelector('#graph0, g.graph') as SVGGElement | null
+  if (!graph) return
 
-  const sizes = pz.getSizes()
   const box = graph.getBBox()
+  if (!isFinite(box.x) || !isFinite(box.y) || box.width <= 0 || box.height <= 0) return
 
-  if (!isFinite(box.x) || !isFinite(box.y) || box.width <= 0 || box.height <= 0) {
-    pz.resize()
-    pz.fit()
-    pz.center()
-    return
-  }
+  const pad = Math.max(8, Math.min(box.width, box.height) * 0.03)
+  const x = box.x - pad
+  const y = box.y - pad
+  const w = box.width + pad * 2
+  const h = box.height + pad * 2
 
-  const pad = 24
-  const scale = Math.min(
-    (sizes.width - pad * 2) / box.width,
-    (sizes.height - pad * 2) / box.height,
-  )
-
-  pz.zoom(scale)
-  pz.pan({
-    x: (sizes.width - box.width * scale) / 2 - box.x * scale,
-    y: (sizes.height - box.height * scale) / 2 - box.y * scale,
-  })
+  svgEl.setAttribute('viewBox', `${x} ${y} ${w} ${h}`)
+  svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet')
 }
 
 export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
@@ -66,15 +50,13 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
     const svgEl = container.querySelector('svg')
     if (!svgEl) return
 
-    // svg-pan-zoom removes the viewBox attribute during init and manages
-    // positioning via transforms on a <g> viewport wrapper instead.
-    // Without viewBox, an SVG with percentage dimensions defaults to 300×150px.
-    // Fix: size the SVG in pixels matching the container so svg-pan-zoom reads
-    // the correct dimensions when it initialises.
+    // svg-pan-zoom may remove viewBox during init; set explicit pixel size so
+    // it measures the real viewport instead of falling back to 300x150.
     const { width: cw, height: ch } = container.getBoundingClientRect()
     svgEl.setAttribute('width', `${cw}`)
     svgEl.setAttribute('height', `${ch}`)
     svgEl.style.display = 'block'
+    tightenViewBoxToGraph(svgEl)
 
     // Defer pan-zoom init to the next frame so the browser has laid out the
     // SVG at its final CSS size before svg-pan-zoom measures it.
@@ -84,15 +66,17 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
       panZoomRef.current = svgPanZoom(svgEl, {
         zoomEnabled: true,
         controlIconsEnabled: false,
-        fit: false,
-        center: false,
+        fit: true,
+        center: true,
         minZoom: 0.05,
         maxZoom: 40,
         mouseWheelZoomEnabled: true,
         onZoom: (scale) => setZoomPercent(Math.round(scale * 100)),
       })
       const pz = panZoomRef.current
-      fitToGraph(pz, svgEl)
+      pz.resize()
+      pz.fit()
+      pz.center()
       setZoomPercent(Math.round(pz.getZoom() * 100))
     }
     rafId = requestAnimationFrame(initPanZoom)
@@ -118,11 +102,10 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
 
   const handleFit = () => {
     const pz = panZoomRef.current
-    const container = containerRef.current
-    if (!pz || !container) return
-    const svgEl = container.querySelector('svg')
-    if (!svgEl) return
-    fitToGraph(pz, svgEl)
+    if (!pz) return
+    pz.resize()
+    pz.fit()
+    pz.center()
     setZoomPercent(Math.round(pz.getZoom() * 100))
   }
 
@@ -143,7 +126,8 @@ export function GraphViewer({ svgContent, filename }: GraphViewerProps) {
   const handleReset = () => {
     const pz = panZoomRef.current
     if (!pz) return
-    pz.resetZoom()
+    pz.resize()
+    pz.fit()
     pz.center()
     setZoomPercent(Math.round(pz.getZoom() * 100))
   }
