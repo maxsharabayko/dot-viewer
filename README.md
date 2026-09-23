@@ -56,6 +56,12 @@ Requires `gh-pages` package (already in devDependencies) and a configured remote
 | SVG sanitization | DOMPurify |
 | Styling | Tailwind CSS 3 |
 
+## License
+
+This project is licensed under the [Mozilla Public License 2.0](LICENSE).
+Third-party dependency licenses and attribution requirements are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Project Structure
 
 ```
